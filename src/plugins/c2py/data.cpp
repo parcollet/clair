@@ -53,3 +53,21 @@ void analyse_dispatch(std::map<str_t, std::vector<fnt_info_t>> &fmap, clang::Var
   } else
     clu::emit_error(decl, "c2py: only c2py::dispatch<...> declaration is authorized here");
 }
+
+// -----------------------------
+bool is_rejected(clang::Decl const *decl, std::optional<std::regex> const &reject_regex, util::logger const *log) {
+  auto *named_decl = llvm::dyn_cast<clang::NamedDecl>(decl);
+  if (!named_decl) return true; // no name -> reject
+  auto name = named_decl->getQualifiedNameAsString();
+  // is annoted explicitely -> reject
+  if (clu::has_annotation(named_decl, "c2py_ignore")) {
+    if (log) (*log)(fmt::format(R"RAW({0} [{1}])RAW", name, "C2PY_IGNORE"));
+    return true;
+  }
+  // matches the regex -> reject
+  if (reject_regex and std::regex_match(name, reject_regex.value())) {
+    if (log) (*log)(fmt::format(R"RAW({0} [{1}])RAW", name, "reject_names"));
+    return true;
+  }
+  return false;
+}

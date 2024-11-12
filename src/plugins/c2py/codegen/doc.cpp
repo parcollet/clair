@@ -2,6 +2,7 @@
 #include "clu/doc_string.hpp"
 #include "data.hpp"
 #include "clu/fullqualifiedname.hpp"
+#include <clang/AST/DeclCXX.h>
 #include <fmt/core.h>
 #include <fmt/format.h>
 #include <string>
@@ -25,27 +26,27 @@ std::string pydoc(fnt_info_t const &f) {
   return util::indent_string(util::trim(fs.str()), "   ");
 }
 //---------------------------------------------------------
-std::string doc_of_synthetized_constructor(cls_ptr_t cls);
+std::string doc_of_synthetized_constructor(cls_info_t const &cls_info);
 
 std::string pydoc(cls_info_t const &cls) {
   std::stringstream fs;
   auto doc = clu::doc_string_t{cls.ptr};
   if (not doc.brief.empty()) fs << doc.brief << "\n\n";
   if (not doc.content.empty()) fs << doc.content << "\n\n";
-  if (cls.synthetize_init_from_pydict()) fs << doc_of_synthetized_constructor(cls.ptr);
+  if (cls.synthetize_init_from_pydict()) fs << doc_of_synthetized_constructor(cls);
   return util::indent_string(util::trim(fs.str()), "   ");
 }
 
 // ----------------------------------------------
 
 // vector of [name, c++ type, initializer, doc]
-std::vector<std::vector<std::string>> get_fields_info(const clang::CXXRecordDecl *cls) {
+std::vector<std::vector<std::string>> get_fields_info(cls_info_t const &cls_info) {
   std::vector<std::vector<std::string>> res;
   //res.push_back({"Field name", "C++ type", "Initializer", "Documentation"});
-  clang::ASTContext *ctx = &cls->getASTContext();
+  clang::CXXRecordDecl const *cls = cls_info.ptr;
+  clang::ASTContext *ctx          = &cls->getASTContext();
 
-  for (clang::FieldDecl *f : cls->fields()) {
-    if (f->getAccess() != clang::AS_public) continue;
+  for (auto *f : cls_info.fields) {
     std::vector<std::string> m(4);
     m[0] = f->getNameAsString();
     m[1] = clu::get_fully_qualified_name(f->getType(), *ctx);
@@ -74,7 +75,7 @@ std::vector<std::vector<std::string>> get_fields_info(const clang::CXXRecordDecl
 
 //---------------------------------------------------------
 
-std::string doc_of_synthetized_constructor(cls_ptr_t cls) {
+std::string doc_of_synthetized_constructor(cls_info_t const &cls_info) {
   std::stringstream doc;
   // doc << '\n';
   static std::regex start1(R"RAW(^\s*\/*\s*)RAW");
@@ -82,7 +83,7 @@ std::string doc_of_synthetized_constructor(cls_ptr_t cls) {
   // FIXME : clean when upgrading
   // gcc 11 does not have the multline implemented ...
   //static std::regex start(R"RAW(^\s*\/*\s*)RAW", std::regex_constants::multiline);
-  for (auto const &f : get_fields_info(cls)) {
+  for (auto const &f : get_fields_info(cls_info)) {
     doc << "* " << f[0] << ": " << f[1];
     if (not f[2].empty()) doc << " = " << f[2];
     doc << "\n" << std::regex_replace(std::regex_replace(f[3], start1, "   "), start2, "\n   ");

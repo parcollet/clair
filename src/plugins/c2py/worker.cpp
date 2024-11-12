@@ -1,3 +1,4 @@
+#include <clang/AST/Decl.h>
 #include <regex>
 #include <numeric>
 #include <filesystem>
@@ -59,22 +60,16 @@ void scan_class_elements(cls_info_t &cls_info, module_info_t &m_info, cls_ptr_t 
 
   for (clang::Decl *decl : cls->decls()) { // all declarations in the class
     if (decl->getAccess() != clang::AS_public) continue;
+    if (is_rejected(decl, m_info.reject_names, &logs.rejected)) continue;
 
     // -------- method
     if (auto *m = llvm::dyn_cast<clang::CXXMethodDecl>(decl)) {
 
-      if (clu::has_annotation(m, "c2py_ignore")) continue;
       if (llvm::isa<clang::CXXDestructorDecl>(m)) continue;                 // no destructors
       if (m->isMoveAssignmentOperator()) continue;                          // no move assign
       if (auto *ctr = llvm::dyn_cast_or_null<clang::CXXConstructorDecl>(m); //
           ctr and ctr->isCopyOrMoveConstructor())
         continue; // no move or copy constructor
-
-      if (m_info.reject_names and std::regex_match(m->getNameAsString(), m_info.reject_names.value())) {
-        logs.rejected(fmt::format(R"RAW({0} [{1}])RAW", m->getNameAsString(), "reject_names"));
-        //clu::emit_warning(m, "Rejected this method");
-        continue;
-      }
 
       // Operators : keep only [] and ()
       static auto const re = std::regex{"operator(.*)"};
@@ -251,8 +246,8 @@ void worker_t::separate_properties() {
 // Check convertibility of parameters, return type, and fields
 void worker_t::check_convertibility() {
 
-  // ordred list of all wrapped class pointer
-  std::vector<cls_ptr_t> wcls;
+  // ordred list of all wrapped class pointer (including opaque ones)
+  std::vector<cls_ptr_t> wcls = this->module_info.classes_wrap_opaque; // start with all the classes with pycapsule wrapping
   for (auto const &[n, clsi] : this->module_info.classes) wcls.push_back(clsi.ptr);
   std::sort(wcls.begin(), wcls.end());
 

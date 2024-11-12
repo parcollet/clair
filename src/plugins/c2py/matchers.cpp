@@ -7,6 +7,7 @@
 static const struct {
   util::logger rejected = util::logger{&std::cout, "-- ", "\033[1;33mRejecting: \033[0m"};
   util::logger note     = util::logger{&std::cout, "-- ", "\033[1;32mNote:  \033[0m"};
+  util::logger error    = util::logger{&std::cout, "-- ", "\033[1;33mError:  \033[0m"};
 } logs;
 namespace matchers {
 
@@ -40,7 +41,10 @@ namespace matchers {
     extract_literal(d, s);
     try {
       if (not s.empty()) x = std::regex{s};
-    } catch (std::regex_error const &e) { clu::emit_error(d, "c2py: invalid C++ regular expression. Cf std::regex documentation for information."); }
+    } catch (std::regex_error const &e) {
+      logs.error(fmt::format("Regular Expression is invalid: \n {}", e.what()));
+      clu::emit_error(d, "c2py: invalid C++ regular expression. Cf std::regex documentation for information.");
+    }
   }
 
   // Bool
@@ -112,6 +116,7 @@ namespace matchers {
        {"match_names", [](auto *d, auto &M) { extract_literal(d, M.match_names); }},
        {"reject_names", [](auto *d, auto &M) { extract_literal(d, M.reject_names); }},
        {"match_files", [](auto *d, auto &M) { extract_literal(d, M.match_files); }},
+       {"opaque_match_names", [](auto *d, auto &M) { extract_literal(d, M.opaque_match_names); }},
     };
 
     if (auto it = vars.find(decl->getName().str()); it != vars.end())
@@ -186,27 +191,26 @@ namespace matchers {
     // Reject template specialization
     if (llvm::dyn_cast_or_null<clang::ClassTemplateSpecializationDecl>(cls)) return;
 
-    //  Discard if C2PY_ignore annotation is present
-    if (clu::has_annotation(cls, "c2py_ignore")) return;
-
     // Apply the filters
     auto qname = cls->getQualifiedNameAsString();
     auto &M    = worker->module_info;
 
+    // apply c2py_ignore and reject_names
+    if (is_rejected(cls, M.reject_names, &logs.rejected)) return;
+
     // Reject classes defined in c2py_module
     if (qname.starts_with("c2py_module::")) return;
 
-    bool force_wrap = (clu::has_annotation(cls, "c2py_wrap"));
+    if (clu::has_annotation(cls, "c2py_wrap_as_opaque") or (M.opaque_match_names and std::regex_match(qname, M.opaque_match_names.value()))) {
+      // The class is wrapped as pycapsule
+      M.classes_wrap_opaque.push_back(cls);
+    } else {
+      // Insert in the module class list
+      str_t py_name = util::camel_case(cls->getNameAsString());
+      M.classes.emplace_back(py_name, cls_info_t{cls}); //
 
-    if (!force_wrap and M.reject_names and std::regex_match(qname, M.reject_names.value())) {
-      logs.rejected(fmt::format(R"RAW({0} [{1}])RAW", qname, "reject_names"));
-      return;
+      //if (not inserted) clu::emit_error(cls, "Class rejected. Should have another class with the same Python name ??");
     }
-    // Insert in the module class list
-    str_t py_name = util::camel_case(cls->getNameAsString());
-    M.classes.emplace_back(py_name, cls_info_t{cls}); //
-
-    //if (not inserted) clu::emit_error(cls, "Class rejected. Should have another class with the same Python name ??");
   }
 
   // -------------------------------------------------
@@ -236,28 +240,20 @@ namespace matchers {
     // Reject the declaration of the template itself.
     if (f->getDescribedFunctionTemplate()) return;
 
-    // reject method --> FIXME : in matcher ?
+    // reject method
+    // FIXME : in matcher ?
     if (llvm::dyn_cast_or_null<clang::CXXMethodDecl>(f)) return;
-
-    //  Discard if C2PY_ignore annotation is present
-    if (clu::has_annotation(f, "c2py_ignore")) return;
 
     // Discard some special function
     if (f->getNameAsString().starts_with("operator")) return;
 
-    // Apply the filters. regex_filter, regex_exclude, then the _fun version
-    auto fqname = f->getQualifiedNameAsString();
-    auto &M     = worker->module_info;
+    // apply c2py_ignore and the reject_name regex
+    auto &M = worker->module_info;
+    if (is_rejected(f, M.reject_names, &logs.rejected)) return;
 
     // Reject functions defined in c2py_module
+    auto fqname = f->getQualifiedNameAsString();
     if (fqname.starts_with("c2py_module::")) return;
-
-    bool force_wrap = (clu::has_annotation(f, "c2py_wrap"));
-
-    if (!force_wrap and M.reject_names and std::regex_match(fqname, M.reject_names.value())) {
-      logs.rejected(fmt::format(R"RAW({0} [{1}])RAW", fqname, "reject_names"));
-      return;
-    }
 
     // Insert in the module function list. Unicity will be taken care of later by worker.
     str_t py_name = f->getNameAsString();

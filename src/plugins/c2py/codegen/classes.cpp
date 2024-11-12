@@ -18,20 +18,23 @@ static const struct {
 
 // ===================================================================
 
-void codegen_synth_constructor(std::ostream &code, clang::CXXRecordDecl const *cls) {
-
-  logs.cls_details(fmt::format("Synthesize constructor from pydict", clu::get_fully_qualified_name(cls))); //->getQualifiedNameAsString()));
+void codegen_synth_constructor(std::ostream &code, cls_info_t const &cls_info) {
+  auto const *cls = cls_info.ptr;
+  auto cls_name   = clu::get_fully_qualified_name(cls); //cls->getQualifiedNameAsString();
+  logs.cls_details(fmt::format("Synthesize constructor from pydict", cls_name));
   static long counter = 0;
 
   std::vector<std::string> non_default_const_params;
   std::vector<clang::FieldDecl *> simple_fields;
   simple_fields.reserve(100); //NOLINT
 
-  for (clang::FieldDecl *f : cls->fields()) {
-    if (f->getAccess() != clang::AS_public) { // FIXME error is quite late... in codegen ...
+  for (auto *f : cls_info.fields) {
+    // FIXME error is quite late. Move up
+    if (f->getAccess() != clang::AS_public) {
       clu::emit_error(f, "c2py: Synthetizing constructor for pydict. Private fields not supported");
       continue;
     }
+
     // if f is a type, which has no default constructor and no defaut initializer is the class
     // we build it at the construction of the object, using designated initializer (as we skip other fields)
     if (auto *clsf = f->getType()->getAsCXXRecordDecl(); clsf and not clsf->hasDefaultConstructor() and (f->getInClassInitializer() == nullptr)) {
@@ -220,7 +223,7 @@ void codegen_cls(std::ostream &code, str_t const &cls_py_name, cls_info_t const 
     // ---- constructor
     if (cls_info.synthetize_init_from_pydict()) {
       // FIXME : check
-      codegen_synth_constructor(MethodDecls, cls_info.ptr);
+      codegen_synth_constructor(MethodDecls, cls_info);
     } else
       codegen::write_dispatch_constructors(MethodDecls, cls_name, cls_info.constructors);
 
@@ -261,7 +264,7 @@ void codegen_cls(std::ostream &code, str_t const &cls_py_name, cls_info_t const 
   static long member_counter = 0;
 
   std::stringstream MembersDoc, Members;
-  for (auto f : cls_info.fields) {
+  for (auto *f : cls_info.fields) {
 
     auto name     = str_t{f->getName()};
     auto type     = clu::get_fully_qualified_name(f->getType(), f->getASTContext());

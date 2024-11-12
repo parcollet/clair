@@ -3,6 +3,7 @@
 #include <map>
 #include <optional>
 #include "utility/string_tools.hpp"
+#include "utility/logger.hpp"
 //#include "clu/misc.hpp"
 #include "clang/AST/DeclCXX.h"
 
@@ -12,9 +13,9 @@ using fnt_ptr_t = clang::FunctionDecl const *;
 // -----------------------------------------------------------
 
 struct fnt_info_t {
-  fnt_ptr_t ptr                            = nullptr;
-  bool rewrite                             = false; // (as_method() ? false : true); //false; // do we need to rewrite it with a lambda (e.g. friend)
-  clang::CXXRecordDecl const *parent_class = nullptr;
+  fnt_ptr_t ptr          = nullptr;
+  bool rewrite           = false; // (as_method() ? false : true); //false; // do we need to rewrite it with a lambda (e.g. friend)
+  cls_ptr_t parent_class = nullptr;
   //bool no_gil                              = clu::has_annotation(ptr, "c2py_nogil");
   [[nodiscard]] clang::CXXMethodDecl const *as_method() const { return llvm::dyn_cast_or_null<clang::CXXMethodDecl>(ptr); }
 };
@@ -25,6 +26,12 @@ std::vector<fnt_info_t> make_unique(std::vector<fnt_info_t> const &flist);
 // Analyse a c2py::dispatch declaration
 // Used by worker and matchers (for methods and funtion resp.)
 void analyse_dispatch(std::map<str_t, std::vector<fnt_info_t>> &fmap, clang::VarDecl const *decl);
+
+/// Should the decl be ignored due to
+/// i) a c2py_ignore annotation
+/// ii) its qualified name matches the regex
+/// If log is present, it logs the rejection
+bool is_rejected(clang::Decl const *decl, std::optional<std::regex> const &reject_regex, util::logger const *log = nullptr);
 
 // -----------------------------------------------------------
 // Serialization method
@@ -70,10 +77,11 @@ struct module_info_t {
 
   // Filters
   std::string match_names, match_files; // string used a regex in the AST Matchers directly
-  std::optional<std::regex> reject_names;
+  std::optional<std::regex> reject_names, opaque_match_names;
   bool get_set_as_properties = false;
 
-  std::map<str_t, std::vector<fnt_info_t>> functions; // vector not unique
-  std::vector<std::pair<str_t, cls_info_t>> classes;  // index of cls_table. Must keep order of insertion to have base first
-  std::vector<clang::EnumDecl const *> enums;         // all enums (including in classes)
+  std::map<str_t, std::vector<fnt_info_t>> functions;            // vector not unique
+  std::vector<std::pair<str_t, cls_info_t>> classes;             // index of cls_table. Must keep order of insertion to have base first
+  std::vector<clang::CXXRecordDecl const *> classes_wrap_opaque; // classes to be wrapped as Pycapsule
+  std::vector<clang::EnumDecl const *> enums;                    // all enums (including in classes)
 };
