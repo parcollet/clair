@@ -116,7 +116,6 @@ namespace matchers {
        {"match_names", [](auto *d, auto &M) { extract_literal(d, M.match_names); }},
        {"reject_names", [](auto *d, auto &M) { extract_literal(d, M.reject_names); }},
        {"match_files", [](auto *d, auto &M) { extract_literal(d, M.match_files); }},
-       {"opaque_match_names", [](auto *d, auto &M) { extract_literal(d, M.opaque_match_names); }},
     };
 
     if (auto it = vars.find(decl->getName().str()); it != vars.end())
@@ -201,16 +200,11 @@ namespace matchers {
     // Reject classes defined in c2py_module
     if (qname.starts_with("c2py_module::")) return;
 
-    if (clu::has_annotation(cls, "c2py_wrap_as_opaque") or (M.opaque_match_names and std::regex_match(qname, M.opaque_match_names.value()))) {
-      // The class is wrapped as pycapsule
-      M.classes_wrap_opaque.push_back(cls);
-    } else {
-      // Insert in the module class list
-      str_t py_name = util::camel_case(cls->getNameAsString());
-      M.classes.emplace_back(py_name, cls_info_t{cls}); //
+    // Insert in the module class list
+    str_t py_name = util::camel_case(cls->getNameAsString());
+    M.classes.emplace_back(py_name, cls_info_t{cls}); //
 
-      //if (not inserted) clu::emit_error(cls, "Class rejected. Should have another class with the same Python name ??");
-    }
+    //if (not inserted) clu::emit_error(cls, "Class rejected. Should have another class with the same Python name ??");
   }
 
   // -------------------------------------------------

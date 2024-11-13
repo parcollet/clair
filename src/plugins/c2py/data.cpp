@@ -9,6 +9,7 @@ using namespace fmt::literals;
 #include "clang/AST/DeclTemplate.h"
 #include <clang/AST/Attr.h>
 #include "utility/string_tools.hpp"
+#include "utility/macros.hpp"
 #include "clu/misc.hpp"
 #include "./data.hpp"
 
@@ -45,7 +46,6 @@ void analyse_dispatch(std::map<str_t, std::vector<fnt_info_t>> &fmap, clang::Var
         if (auto *f = llvm::dyn_cast_or_null<clang::FunctionDecl>(targ.getAsDecl())) {
           auto fname = str_t{decl->getName()};
           fmap[fname].push_back(fnt_info_t{f, false});
-          // f->dump();
         } else
           clu::emit_error(targ.getAsDecl(), "c2py: c2py::dispatch<...> takes only function pointers");
       }

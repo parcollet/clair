@@ -77,11 +77,10 @@ struct module_info_t {
 
   // Filters
   std::string match_names, match_files; // string used a regex in the AST Matchers directly
-  std::optional<std::regex> reject_names, opaque_match_names;
+  std::optional<std::regex> reject_names;
   bool get_set_as_properties = false;
 
-  std::map<str_t, std::vector<fnt_info_t>> functions;            // vector not unique
-  std::vector<std::pair<str_t, cls_info_t>> classes;             // index of cls_table. Must keep order of insertion to have base first
-  std::vector<clang::CXXRecordDecl const *> classes_wrap_opaque; // classes to be wrapped as Pycapsule
-  std::vector<clang::EnumDecl const *> enums;                    // all enums (including in classes)
+  std::map<str_t, std::vector<fnt_info_t>> functions; // vector not unique
+  std::vector<std::pair<str_t, cls_info_t>> classes;  // index of cls_table. Must keep order of insertion to have base first
+  std::vector<clang::EnumDecl const *> enums;         // all enums (including in classes)
 };

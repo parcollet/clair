@@ -128,13 +128,7 @@ str_t codegen_module(module_info_t const &m) {
   std::stringstream ClassesDecls, PyTypeReadyDecls, AddTypeObjectDecls;
   std::stringstream Hdf5C2pyIncluder, Hdf5RegistrationInit, Hdf5Registration;
 
-  // classes wrapped as pycapsule : just use define the converter.
-  for (auto const *cls : m.classes_wrap_opaque) {
-    ClassesDecls << fmt::format(R"RAW(  template <> struct c2py::py_converter<{0}> : c2py::py_converter_as_any<{0}> {{}};)RAW",
-                                clu::get_fully_qualified_name(cls));
-  }
-
-  // classes fully wrapped
+  // classes wrapped
   for (auto const &[cls_py_name, cls_info] : m.classes) {
     codegen_cls(ClassesDecls, cls_py_name, cls_info, full_module_name);
 

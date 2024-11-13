@@ -21,6 +21,8 @@ static const struct {
 void codegen_synth_constructor(std::ostream &code, cls_info_t const &cls_info) {
   auto const *cls = cls_info.ptr;
   auto cls_name   = clu::get_fully_qualified_name(cls); //cls->getQualifiedNameAsString();
+  if (cls_info.fields.empty()) return;                  // Nothing to construct from ?
+
   logs.cls_details(fmt::format("Synthesize constructor from pydict", cls_name));
   static long counter = 0;
 
@@ -76,9 +78,11 @@ void codegen_synth_constructor(std::ostream &code, cls_info_t const &cls_info) {
 
 // ===================================================================
 
-void codegen_synth___dict_attribute(std::ostream &code, std::ostream &table, clang::CXXRecordDecl const *cls) {
+void codegen_synth___dict_attribute(std::ostream &code, std::ostream &table, cls_info_t const &cls_info) {
 
   static long counter = 0;
+  auto const *cls     = cls_info.ptr;
+  if (cls_info.fields.empty()) return; // Nothing to return
 
   code << '\n'
        << fmt::format(R"RAW( static PyObject *prop_get_dict_{0}(PyObject *self, void *) {{
@@ -86,8 +90,8 @@ void codegen_synth___dict_attribute(std::ostream &code, std::ostream &table, cla
                               c2py::pydict dic; )RAW",
                       counter, cls->getQualifiedNameAsString());
 
-  for (clang::FieldDecl *f : cls->fields()) {
-    if (f->getAccess() != clang::AS_public) continue;
+  for (auto *f : cls_info.fields) {
+    //if (f->getAccess() != clang::AS_public) continue; // SHOULD BE USELESS
     code << fmt::format(R"RAW( dic["{0}"] = self_c.{0}; )RAW", f->getNameAsString());
   }
 
@@ -297,7 +301,7 @@ void codegen_cls(std::ostream &code, str_t const &cls_py_name, cls_info_t const 
   std::stringstream PropertiesDecls, Properties, PropertiesDocs;
   for (auto const &[pyname, prop] : cls_info.properties) codegen_getter_setter(PropertiesDecls, Properties, PropertiesDocs, pyname, prop);
 
-  if (cls_info.synthetize_dict_attribute()) codegen_synth___dict_attribute(code, Properties, cls_info.ptr);
+  if (cls_info.synthetize_dict_attribute()) codegen_synth___dict_attribute(code, Properties, cls_info);
 
   code << PropertiesDecls.str();
   code << PropertiesDocs.str();

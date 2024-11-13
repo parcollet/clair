@@ -247,7 +247,7 @@ void worker_t::separate_properties() {
 void worker_t::check_convertibility() {
 
   // ordred list of all wrapped class pointer (including opaque ones)
-  std::vector<cls_ptr_t> wcls = this->module_info.classes_wrap_opaque; // start with all the classes with pycapsule wrapping
+  std::vector<cls_ptr_t> wcls;
   for (auto const &[n, clsi] : this->module_info.classes) wcls.push_back(clsi.ptr);
   std::sort(wcls.begin(), wcls.end());
 
