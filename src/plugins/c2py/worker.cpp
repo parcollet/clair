@@ -218,27 +218,24 @@ void worker_t::remove_multiple_decl() {
 }
 
 // ------------------------------------------------
-
-//
 void worker_t::separate_properties() {
 
   auto &M = this->module_info;
   if (not M.get_set_as_properties) return;
 
   for (auto &[_, cls] : M.classes) {
-    decltype(cls.methods) methods2 = {};
-    for (auto &[name, v] : cls.methods) {
+    // if the method has no argument and is not void (?)
+    // we remove it as method, and insert it in the property list
+    std::erase_if(cls.methods, [&cls](auto &&p) -> bool {
+      auto &[name, v] = p;
       if ((v.size() == 1) and (v[0].ptr->getNumParams() == 0)) {
-        auto *m = v[0].as_method();
-        EXPECTS(m);
-        if (not m->getReturnType()->isVoidType()) {
+        if (auto *m = v[0].as_method(); m and not m->getReturnType()->isVoidType()) {
           cls.properties.insert({name, cls_info_t::property{v[0], {}}});
-          continue;
+          return true; // remove
         }
       }
-      methods2.emplace(name, std::move(v));
-    }
-    cls.methods = std::move(methods2);
+      return false; // default: do not remove
+    });
   }
 }
 // ------------------------------------------------
