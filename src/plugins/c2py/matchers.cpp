@@ -1,6 +1,7 @@
 #include "./matchers.hpp"
 #include "clang/Basic/SourceManager.h"
 #include "clu/misc.hpp"
+#include "clu/concept.hpp"
 #include "utility/logger.hpp"
 #include "utility/macros.hpp"
 #include "clang/ASTMatchers/ASTMatchers.h"
@@ -198,6 +199,16 @@ template <> void matcher<mtch::Cls>::run(const clang::ast_matchers::MatchFinder:
 
   // Reject classes defined in c2py_module
   if (qname.starts_with("c2py_module::")) return;
+
+  // reject a class which already HAS a converter Py2C
+  // NB : if the class has already a C2py converter, it is overuled
+  // by the wrapping. It is necessary since all classes with iterator
+  // can have a default c2py converter as a generator
+  // which is superseded by the wrapping it is exists
+  if (clu::satisfy_concept(cls, worker->IsConvertiblePy2C, worker->ci)) {
+    logs.rejected(fmt::format(R"RAW({0} [{1}])RAW", qname, "Already has a converter"));
+    return;
+  }
 
   // Insert in the module class list
   str_t py_name = util::camel_case(cls->getNameAsString());
