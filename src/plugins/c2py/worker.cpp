@@ -251,14 +251,9 @@ void worker_t::check_convertibility() {
   for (auto const &[n, clsi] : this->module_info.classes) wcls.push_back(clsi.ptr);
   std::sort(wcls.begin(), wcls.end());
 
-  auto clean_type1 = [](clang::QualType const &ty) -> clang::CXXRecordDecl const * {
-    if (auto *cls = ty->getPointeeCXXRecordDecl()) return cls;
-    if (auto *cls = ty->getAsCXXRecordDecl()) return cls;
-    return nullptr;
-  };
-
-  auto is_wrapped = [&wcls, &clean_type1](auto &ty) {
-    auto *cls = clean_type1(ty);
+  auto is_wrapped = [&wcls](clang::QualType const &ty) -> bool {
+    clang::CXXRecordDecl const *cls = ty->getAsCXXRecordDecl();
+    if (!cls) cls = ty->getPointeeCXXRecordDecl();
     return cls and std::binary_search(wcls.begin(), wcls.end(), cls);
   };
 
@@ -267,11 +262,13 @@ void worker_t::check_convertibility() {
       auto *p = f->getParamDecl(i);
       auto ty = p->getOriginalType();
       if ((not ty->isVoidType()) and (not clu::satisfy_concept(ty, this->IsConvertiblePy2C, this->ci)) and (not is_wrapped(ty)))
-        clu::emit_error(p, "c2py: Can not be converted from python to C++");
+        clu::emit_error(p, "c2py: Can not convert this argument from python to C++");
     }
     auto ty = f->getReturnType();
-    if ((not ty->isVoidType()) and (not clu::satisfy_concept(ty, this->IsConvertibleC2Py, this->ci)) and (not is_wrapped(ty)))
-      clu::emit_error(f, "c2py: Can not be converted from C++ to python");
+    if (ty->isPointerType())
+      clu::emit_error(f, "c2py: Can not convert a raw C++ pointer to python");
+    else if ((not ty->isVoidType()) and (not clu::satisfy_concept(ty, this->IsConvertibleC2Py, this->ci)) and (not is_wrapped(ty)))
+      clu::emit_error(f, "c2py: Can not convert this return type from C++ to python");
   };
 
   auto checkv = [&checkf](std::vector<fnt_info_t> const &flist) {
