@@ -58,10 +58,8 @@ struct cls_info_t {
 
   // Do we need to synthesize a constructor, as the class has only a {}
   // aggregate initialization
-  [[nodiscard]] bool synthetize_init_from_pydict() const {
-    return (ptr->isAggregate() and not ptr->hasTrivialDefaultConstructor() and (ptr->getNumBases() == 0));
-  }
-  [[nodiscard]] bool synthetize_dict_attribute() const { return synthetize_init_from_pydict(); }
+  bool synthetize_init_from_pydict() const { return (ptr->isAggregate() and not ptr->hasTrivialDefaultConstructor() and (ptr->getNumBases() == 0)); }
+  bool synthetize_dict_attribute() const { return synthetize_init_from_pydict(); }
 };
 
 // -----------------------------------------------------------

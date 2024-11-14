@@ -1,1 +1,1 @@
-Checks: '-*,modernize-*,cppcoreguidelines-*,-cppcoreguidelines-init*, -modernize-use-trailing-return-type,op-check, -cppcoreguidelines-non-private-member-variables-in-classes'
+Checks: '-*,modernize-*,cppcoreguidelines-*,-cppcoreguidelines-init*, -modernize-use-nodiscard, -modernize-use-trailing-return-type,op-check, -cppcoreguidelines-non-private-member-variables-in-classes'
