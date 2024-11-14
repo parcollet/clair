@@ -99,7 +99,7 @@ void scan_class_elements(cls_info_t &cls_info, module_info_t &m_info, cls_ptr_t 
 
 //
 void worker_t::scan_class_and_bases_elements() {
-  std::vector<cls_ptr_t> merged;
+  //std::vector<cls_ptr_t> merged;
   auto &allcls = this->module_info.classes;
   for (auto &[_, cls_info] : allcls) {
     scan_class_elements(cls_info, this->module_info, cls_info.ptr);
@@ -161,6 +161,8 @@ bool contains(auto const &v, auto const &x) { return std::find(std::begin(v), st
 
 // PROP of the class
 void worker_t::prepare_methods() {
+  static const char *beg_end[] = {"begin", "end", "cbegin", "cend"}; // NOLINT
+
   for (auto &[_, cls] : this->module_info.classes) {
 
     bool has_user_defined_call = cls.methods.contains("__call__");
@@ -177,23 +179,21 @@ void worker_t::prepare_methods() {
     for (auto &[n, v] : cls.methods) {
       // operator[] is special, we keep the const AND non const method
       // and split them in getitems, setitems
-      int nparam                   = int(v[0].ptr->getNumParams());
-      static const char *beg_end[] = {"begin", "end", "cbegin", "cend"}; // NOLINT Questionable
+      int nparam = int(v[0].ptr->getNumParams());
 
       // special cases first
-      // [] : we place the methods in get/setitems depending on constness
       if (n == "operator[]") {
-        llvm::copy_if(v, std::back_inserter(cls.getitems), [](auto &&fi) {
+        // place methods in get/setitems depending on constness
+        for (auto &&fi : v) {
           auto *m = llvm::dyn_cast_or_null<clang::CXXMethodDecl>(fi.ptr);
-          return m->isConst();
-        });
-
-        llvm::copy_if(v, std::back_inserter(cls.setitems), [](auto &&fi) {
-          auto *m = llvm::dyn_cast_or_null<clang::CXXMethodDecl>(fi.ptr);
-          return not m->isConst();
-        });
+          ASSERT(m);
+          (m->isConst() ? cls.getitems : cls.setitems).push_back(fi);
+        }
       } else if (n == "operator()") {
-        if (not has_user_defined_call) methods2.insert({"__call__", flist_rm_const(v)});
+        if (has_user_defined_call)
+          clu::emit_error(v[0].ptr, "Can not wrap both operator() and __call__ ");
+        else
+          methods2.insert({"__call__", flist_rm_const(v)});
       }
       // size
       else if ((n == "size") and (nparam == 0))
