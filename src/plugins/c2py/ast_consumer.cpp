@@ -33,7 +33,7 @@ void ast_consumer::HandleTranslationUnit(clang::ASTContext &ctx) {
 
   // ------- Match some concepts in c2py::concepts
   {
-    matchers::concept_t ma{worker};
+    matcher<mtch::Concept> ma{worker};
     MatchFinder mf;
     mf.addMatcher(namespaceDecl(hasName("c2py"), forEach(namespaceDecl(hasName("concepts"), forEach(namedDecl().bind("conceptDecl"))))), &ma);
     // a few concepts that may be present in know library
@@ -54,7 +54,7 @@ void ast_consumer::HandleTranslationUnit(clang::ASTContext &ctx) {
   // ------- Match the config variables in c2py_module in main file
   // e.g. auto ns = "N"; etc...
   {
-    matchers::module_vars_t vars{worker};
+    matcher<mtch::ModuleVars> vars{worker};
     MatchFinder mf;
     mf.addMatcher(namespaceDecl(isExpansionInMainFile(), hasName("c2py_module"), //
                                 forEach(varDecl().bind("decl"))),
@@ -66,7 +66,7 @@ void ast_consumer::HandleTranslationUnit(clang::ASTContext &ctx) {
 
   // ------- Match automatically detected classes.
   {
-    matchers::cls_t ma{worker};
+    matcher<mtch::Cls> ma{worker};
     MatchFinder mf;
     if (auto const &s = worker->module_info.match_names; not s.empty())
       mf.addMatcher(cxxRecordDecl(matchesName(s), unless(isExpansionInSystemHeader())).bind("class"), &ma);
@@ -80,7 +80,7 @@ void ast_consumer::HandleTranslationUnit(clang::ASTContext &ctx) {
   // ------- Match automatically detected functions
   // except friend function, or method (will be done by inspecting the relevant classes)
   {
-    matchers::matcher<matchers::Fnt> ma{worker};
+    matcher<mtch::Fnt> ma{worker};
     // NB the std header clause will remove everything included with -isystem (e.g. other libs)
     MatchFinder mf;
     if (auto const &s = worker->module_info.match_names; not s.empty())
@@ -96,7 +96,7 @@ void ast_consumer::HandleTranslationUnit(clang::ASTContext &ctx) {
 
   // ------- Match the enums
   {
-    matchers::enum_t ma{worker};
+    matcher<mtch::Enum> ma{worker};
     MatchFinder mf;
     if (auto const &s = worker->module_info.match_names; not s.empty())
       mf.addMatcher(enumDecl(matchesName(s), unless(isExpansionInSystemHeader())).bind("en"), &ma);
@@ -108,7 +108,7 @@ void ast_consumer::HandleTranslationUnit(clang::ASTContext &ctx) {
 
   // ------- Match the c2py::dispatch declarations in c2py_module::functions
   {
-    matchers::module_fun_dispatch_t ma{worker};
+    matcher<mtch::ModuleFntDispatch> ma{worker};
     MatchFinder mf;
     // match the dispatch directly under add, not those of the nested struct
     mf.addMatcher(namespaceDecl(isExpansionInMainFile(), hasName("c2py_module"), //
@@ -121,7 +121,7 @@ void ast_consumer::HandleTranslationUnit(clang::ASTContext &ctx) {
 
   // ------- Match the classes declared in module by using
   {
-    matchers::module_cls_wrap_t ma{worker};
+    matcher<mtch::ModuleClsWrap> ma{worker};
     MatchFinder mf;
     mf.addMatcher(namespaceDecl(isExpansionInMainFile(), hasName("c2py_module"), //
                                 forEach(typeAliasDecl().bind("decl"))),
@@ -132,7 +132,7 @@ void ast_consumer::HandleTranslationUnit(clang::ASTContext &ctx) {
 
   // ------- Match the classes in c2py_module::add: in main file
   {
-    matchers::module_cls_info_t ma{worker};
+    matcher<mtch::ModuleClsInfo> ma{worker};
     MatchFinder mf;
     mf.addMatcher(namespaceDecl(hasName("c2py_module"), forEach(classTemplateDecl().bind("decl"))), &ma);
     mf.matchAST(ctx);
