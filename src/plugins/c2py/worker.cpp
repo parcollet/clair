@@ -18,6 +18,8 @@ static const struct {
   util::logger rejected = util::logger{&std::cout, "-- ", "\033[1;33mRejecting: \033[0m"};
 } logs;
 
+//--------------------------------------------------------
+
 worker_t::worker_t(clang::CompilerInstance *ci) : ci{ci} {
   auto p                  = std::filesystem::path{ci->getFrontendOpts().Inputs[0].getFile().str()};
   module_info.sourcefile  = str_t{p.filename()};
@@ -130,7 +132,6 @@ std::vector<fnt_info_t> flist_rm_const(std::vector<fnt_info_t> const &mlist) {
     qual_type_vec_t res;
     res.reserve(f->getNumParams());
     for (auto const &p : f->parameters()) res.push_back(p->getOriginalType());
-    //for (auto i : itertools::range(f->getNumParams())) res[i] = f->getParamDecl(i)->getOriginalType();
     return res;
   };
 
@@ -223,9 +224,11 @@ void worker_t::separate_properties() {
   auto &M = this->module_info;
   if (not M.get_set_as_properties) return;
 
-  for (auto &[_, cls] : M.classes) {
+  for (auto &[_, cls1] : M.classes) {
     // if the method has no argument and is not void (?)
     // we remove it as method, and insert it in the property list
+    auto &cls = cls1; // workaround for old compiler bug
+    // C++20 issue with capturing binding (not needed on clang 18)
     std::erase_if(cls.methods, [&cls](auto &&p) -> bool {
       auto &[name, v] = p;
       if ((v.size() == 1) and (v[0].ptr->getNumParams() == 0)) {
