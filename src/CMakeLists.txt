@@ -11,6 +11,8 @@ message(STATUS "-------- LLVM / Clang detection -------------")
 include(clang_detection)
 
 # fmt
+ message(STATUS "CMAKE_TOOLCHAIN_FILE = :${CMAKE_TOOLCHAIN_FILE} ")
+
 #if(DEFINED CMAKE_TOOLCHAIN_FILE AND CMAKE_TOOLCHAIN_FILE MATCHES "vcpkg")
 if(CMAKE_TOOLCHAIN_FILE MATCHES "vcpkg")
 
