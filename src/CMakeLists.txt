@@ -11,6 +11,14 @@ message(STATUS "-------- LLVM / Clang detection -------------")
 include(clang_detection)
 
 # fmt
+#if(DEFINED CMAKE_TOOLCHAIN_FILE AND CMAKE_TOOLCHAIN_FILE MATCHES "vcpkg")
+if(CMAKE_TOOLCHAIN_FILE MATCHES "vcpkg")
+
+ message(STATUS "Using vcpkg for dependency management.")
+ find_package(fmt required)
+
+else()
+
 message(STATUS "-------- Fetch & Configure FMT -------------")
 include(FetchContent)
 FetchContent_Declare(
@@ -21,6 +29,7 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(fmt)
 set_property(TARGET fmt PROPERTY POSITION_INDEPENDENT_CODE ON)
+endif()
 
 # ========= Dynamic Analyzer Checks ==========
 
@@ -56,4 +65,4 @@ endif()
 
 add_subdirectory(clu)
 add_subdirectory(plugins)
-add_subdirectory(tools)
+#add_subdirectory(tools)
