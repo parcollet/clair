@@ -17,7 +17,7 @@ include(clang_detection)
 if(CMAKE_TOOLCHAIN_FILE MATCHES "vcpkg")
 
  message(STATUS "Using vcpkg for dependency management.")
- find_package(fmt required)
+ find_package(fmt REQUIRED)
 
 else()
 
